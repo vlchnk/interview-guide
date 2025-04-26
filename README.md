@@ -2,12 +2,14 @@
 
 ## Содержание
 1. [Алгоритмы и структуры данных](./algorithms/README.md)
-2. [Go](./go/README.md)
-3. [Node.js](./nodejs/README.md)
-4. [HTTP](./http/README.md)
-5. [SQL](./sql/README.md)
-6. [Git](./git/README.md)
-7. [Unix](./unix/README.md)
+2. [Архитектура](./architecture/README.md)
+3. [Go](./go/README.md)
+4. [Node.js](./nodejs/README.md)
+5. [HTTP](./http/README.md)
+6. [SQL](./sql/README.md)
+7. [Git](./git/README.md)
+8. [Unix](./unix/README.md)
+9. [Kafka](./kafka/README.md)
 
 ## Общее описание
 
@@ -56,6 +58,11 @@
 - [LeetCode](https://leetcode.com/)
 - [HackerRank](https://www.hackerrank.com/)
 - [GeeksforGeeks](https://www.geeksforgeeks.org/)
+
+### Архитектура
+- [Martin Fowler's Website](https://martinfowler.com/)
+- [Clean Architecture by Robert C. Martin](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
+- [Microservices.io](https://microservices.io/)
 
 ### Go
 - [Official Documentation](https://golang.org/doc/)
