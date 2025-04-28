@@ -268,6 +268,240 @@ FROM orders;
 
 ## Оптимизация
 
+### Мониторинг и оптимизация производительности PostgreSQL
+
+#### Выявление медленных запросов
+
+##### 1. Использование log_min_duration_statement
+
+Это параметр конфигурации PostgreSQL, который позволяет логировать запросы, выполнение которых занимает больше указанного времени:
+
+```sql
+-- В postgresql.conf или через ALTER SYSTEM
+ALTER SYSTEM SET log_min_duration_statement = '100ms';
+-- Затем перезагрузить конфигурацию
+SELECT pg_reload_conf();
+```
+
+- Значение указывается в миллисекундах
+- Установка в 0 логирует все запросы
+- Установка в -1 отключает логирование по времени выполнения
+
+##### 2. Использование pg_stat_statements
+
+Расширение, которое собирает статистику выполнения всех SQL-запросов:
+
+```sql
+-- Включение расширения
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
+-- Настройка в postgresql.conf
+-- shared_preload_libraries = 'pg_stat_statements'
+-- pg_stat_statements.track = all
+
+-- Просмотр самых медленных запросов
+SELECT 
+    query,
+    calls,
+    total_exec_time / calls as avg_time,
+    min_exec_time,
+    max_exec_time,
+    stddev_exec_time,
+    rows / calls as avg_rows
+FROM pg_stat_statements
+ORDER BY avg_time DESC
+LIMIT 10;
+
+-- Сброс статистики
+SELECT pg_stat_statements_reset();
+```
+
+##### 3. Использование auto_explain
+
+Модуль для автоматического логирования планов выполнения медленных запросов:
+
+```sql
+-- В postgresql.conf
+-- shared_preload_libraries = 'auto_explain'
+-- auto_explain.log_min_duration = '100ms'
+-- auto_explain.log_analyze = true
+-- auto_explain.log_verbose = true
+-- auto_explain.log_buffers = true
+-- auto_explain.log_nested_statements = true
+```
+
+##### 4. Анализ журналов PostgreSQL
+
+Журналы PostgreSQL содержат информацию о медленных запросах, ошибках и других событиях:
+
+```bash
+# Просмотр последних записей журнала
+tail -f /var/log/postgresql/postgresql-14-main.log
+
+# Поиск медленных запросов
+grep "duration:" /var/log/postgresql/postgresql-14-main.log
+```
+
+#### Оптимизация производительности PostgreSQL
+
+##### 1. Настройка параметров конфигурации
+
+```sql
+-- Увеличение shared_buffers (обычно 25% от RAM)
+ALTER SYSTEM SET shared_buffers = '2GB';
+
+-- Настройка work_mem для сложных запросов
+ALTER SYSTEM SET work_mem = '64MB';
+
+-- Настройка maintenance_work_mem для обслуживания
+ALTER SYSTEM SET maintenance_work_mem = '256MB';
+
+-- Настройка effective_cache_size (обычно 50-75% от RAM)
+ALTER SYSTEM SET effective_cache_size = '6GB';
+
+-- Настройка параллельного выполнения запросов
+ALTER SYSTEM SET max_parallel_workers_per_gather = 4;
+ALTER SYSTEM SET max_parallel_workers = 8;
+
+-- Применение изменений
+SELECT pg_reload_conf();
+```
+
+##### 2. Регулярное обслуживание базы данных
+
+```sql
+-- VACUUM удаляет "мертвые" строки и обновляет статистику
+VACUUM ANALYZE;
+
+-- VACUUM FULL освобождает больше места, но блокирует таблицу
+VACUUM FULL table_name;
+
+-- Автоматический VACUUM (настройка в postgresql.conf)
+-- autovacuum = on
+-- autovacuum_vacuum_threshold = 50
+-- autovacuum_analyze_threshold = 50
+-- autovacuum_vacuum_scale_factor = 0.1
+-- autovacuum_analyze_scale_factor = 0.05
+
+-- Обновление статистики для оптимизатора запросов
+ANALYZE table_name;
+```
+
+##### 3. Оптимизация запросов
+
+```sql
+-- Использование EXPLAIN ANALYZE для анализа плана запроса
+EXPLAIN ANALYZE
+SELECT * FROM large_table WHERE non_indexed_column = 'value';
+
+-- Создание индексов для часто используемых условий
+CREATE INDEX idx_table_column ON table_name(column_name);
+
+-- Использование частичных индексов
+CREATE INDEX idx_orders_status ON orders(status) WHERE status = 'processing';
+
+-- Использование индексов для сортировки
+CREATE INDEX idx_users_created_at ON users(created_at DESC);
+
+-- Использование покрывающих индексов
+CREATE INDEX idx_covering ON table_name(id, name, email);
+```
+
+##### 4. Партиционирование таблиц
+
+```sql
+-- Создание партиционированной таблицы по диапазону дат
+CREATE TABLE logs (
+    id SERIAL,
+    log_time TIMESTAMP,
+    message TEXT
+) PARTITION BY RANGE (log_time);
+
+-- Создание партиций
+CREATE TABLE logs_2023_q1 PARTITION OF logs
+    FOR VALUES FROM ('2023-01-01') TO ('2023-04-01');
+
+CREATE TABLE logs_2023_q2 PARTITION OF logs
+    FOR VALUES FROM ('2023-04-01') TO ('2023-07-01');
+```
+
+##### 5. Использование материализованных представлений
+
+```sql
+-- Создание материализованного представления
+CREATE MATERIALIZED VIEW mv_monthly_sales AS
+SELECT 
+    date_trunc('month', order_date) as month,
+    sum(amount) as total_sales
+FROM orders
+GROUP BY 1;
+
+-- Обновление материализованного представления
+REFRESH MATERIALIZED VIEW mv_monthly_sales;
+
+-- Создание индекса для материализованного представления
+CREATE INDEX idx_mv_monthly_sales_month ON mv_monthly_sales(month);
+```
+
+##### 6. Оптимизация соединений таблиц
+
+```sql
+-- Использование EXPLAIN для анализа JOIN
+EXPLAIN ANALYZE
+SELECT u.name, o.amount 
+FROM users u 
+JOIN orders o ON u.id = o.user_id;
+
+-- Создание индексов для столбцов, участвующих в JOIN
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+
+-- Использование JOIN LATERAL для оптимизации подзапросов
+SELECT u.name, recent_orders.amount
+FROM users u
+LEFT JOIN LATERAL (
+    SELECT amount 
+    FROM orders 
+    WHERE user_id = u.id 
+    ORDER BY created_at DESC 
+    LIMIT 3
+) recent_orders ON true;
+```
+
+##### 7. Использование connection pooling
+
+Использование PgBouncer или Pgpool-II для управления пулом соединений:
+
+```bash
+# Установка PgBouncer
+apt-get install pgbouncer
+
+# Настройка в pgbouncer.ini
+[databases]
+mydb = host=localhost port=5432 dbname=mydb
+
+[pgbouncer]
+listen_port = 6432
+listen_addr = *
+auth_type = md5
+pool_mode = transaction
+max_client_conn = 1000
+default_pool_size = 20
+```
+
+##### 8. Оптимизация дисковой подсистемы
+
+- Размещение WAL (Write-Ahead Log) на отдельном быстром диске
+- Настройка параметров WAL для оптимизации производительности:
+
+```sql
+-- Настройка размера WAL сегментов
+ALTER SYSTEM SET wal_buffers = '16MB';
+
+-- Настройка контрольных точек
+ALTER SYSTEM SET checkpoint_timeout = '15min';
+ALTER SYSTEM SET checkpoint_completion_target = 0.9;
+```
+
 ### Индексы
 
 #### Что такое индексы
