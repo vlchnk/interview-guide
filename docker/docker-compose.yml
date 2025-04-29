@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # Web application service
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: example-app:latest
+    container_name: example-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:password@db:5432/example
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - db
+      - redis
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Database service
+  db:
+    image: postgres:13-alpine
+    container_name: example-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=example
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d example"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Redis cache service
+  redis:
+    image: redis:6-alpine
+    container_name: example-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Nginx service for reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: example-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./static:/var/www/html
+    depends_on:
+      - web
+    networks:
+      - app-network
+
+# Persistent volumes
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# Application network
+networks:
+  app-network:
+    driver: bridge

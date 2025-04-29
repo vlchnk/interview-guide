@@ -10,6 +10,8 @@
 7. [Git](./git/README.md)
 8. [Unix](./unix/README.md)
 9. [Kafka](./kafka/README.md)
+10. [Kubernetes](./kubernetes/README.md)
+11. [Docker](./docker/README.md)
 
 ## Общее описание
 
@@ -93,3 +95,9 @@
 - [Linux Command Line](https://linuxcommand.org/)
 - [Bash Guide](https://guide.bash.academy/)
 - [Linux Documentation Project](https://tldp.org/)
+
+### Kubernetes
+- [Kubernetes Documentation](https://kubernetes.io/docs/home/)
+- [Kubernetes Patterns](https://k8spatterns.io/)
+- [Kubernetes the Hard Way](https://github.com/kelseyhightower/kubernetes-the-hard-way)
+- [CNCF Landscape](https://landscape.cncf.io/)
